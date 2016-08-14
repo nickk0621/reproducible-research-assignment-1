@@ -1,0 +1,179 @@
+---
+title: "repdoducible research"
+output: html_document
+---
+
+
+
+#Peer Assignment 1
+
+###Loading and preprocessing the data
+###Show any code that is needed to
+1: Load the data (i.e. read.csv())
+2: Process/transform the data (if necessary) into a format suitable for your analysis
+
+### set variables
+```{r, echo=TRUE}
+url <- "https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip";
+zipfile <- "repdata_data_factivity.zip"
+csvfile <- "activity.csv"
+
+```
+
+### download file and unzip
+
+```{r,echo=TRUE}
+download.file(url, zipfile, method="curl")
+unzip(zipfile)
+```
+### read csv file into data.frame
+
+```{r, echo=TRUE}
+dt <- read.csv(csvfile)
+
+```
+### convert date factor to date
+```{r, echo=TRUE}
+dt_conv <- transform(dt, date=as.Date(date, format="%Y-%m-%d"))
+```
+
+###What is mean total number of steps taken per day?
+###For this part of the assignment, you can ignore the missing values in the dataset.
+
+1: Calculate the total number of steps taken per day
+
+### Aggregate by date and calculate sum
+
+```{r, echo=TRUE}
+dt_agg_day <- aggregate(steps ~ date, FUN=sum, data=dt_conv)
+vt_agg_day <- dt_agg_day$steps
+names(vt_agg_day) <- dt_agg_day$date 
+```
+
+2: If you do not understand the difference between a histogram and a barplot, research the difference between them. Make a histogram of the total number of steps taken each day
+
+## make histogram
+```{r, echo=TRUE}
+hist(dt_agg_day$steps, xlab="number of steps", main="Total number of steps taken each day",col="gray")
+```
+
+3: Calculate and report the mean and median of the total number of steps taken per day
+```{r, echo=TRUE}
+v_mean <- (mean(dt_agg_day$steps))
+v_median <- factor(median(dt_agg_day$steps))
+
+print(v_mean)
+```
+
+```{r, echo=TRUE}
+print(v_median)
+```
+
+
+###What is the average daily activity pattern?
+1: Make a time series plot (i.e. type = “l”) of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all days (y-axis)
+
+```{r, echo=TRUE}
+dt_agg_int <- aggregate(steps ~ interval, FUN=mean, data=dt_conv)
+
+plot(x=dt_agg_int$interval
+   , y=dt_agg_int$steps
+   , type="l"
+   , main="Average number of steps taken across all days"
+   , xlab="Interval"
+   , ylab="Steps")
+```
+
+2: Which 5-minute interval, on average across all the days in the dataset, contains the maximum number of steps?
+
+```{r, echo=TRUE}
+dt_agg_order <- dt_agg_int[order(-dt_agg_int$steps),]
+print(dt_agg_order[1, ])
+##     interval    steps
+## 104      835 206.1698
+```
+###Imputing missing values
+####Note that there are a number of days/intervals where there are missing values (coded as NA). The presence of missing days may introduce bias into some calculations or summaries of the data.
+
+1: Calculate and report the total number of missing values in the dataset (i.e. the total number of rows with NAs)
+
+```{r, echo=TRUE}
+v_na_sum <- sum(is.na(dt_conv$steps))
+print(v_na_sum)
+```
+
+
+2: Devise a strategy for filling in all of the missing values in the dataset. The strategy does not need to be sophisticated. For example, you could use the mean/median for that day, or the mean for that 5-minute interval, etc.
+
+### calculate the mean per 5-minute interval
+```{r, echo=TRUE}
+dt_agg_int_mean <- aggregate(steps ~ interval, FUN=mean, data=dt_conv)
+```
+3: Create a new dataset that is equal to the original dataset but with the missing data filled in.
+
+### merge original and mean per interval dataset
+```{r, echo=TRUE}
+dt_conv_merge <- merge(x=dt_conv, y=dt_agg_int_mean, by="interval")
+```
+### add column steps with missing data filled with the interval mean
+```{r, echo=TRUE}
+dt_conv_merge$steps <- ifelse(is.na(dt_conv_merge$steps.x), dt_conv_merge$steps.y, dt_conv_merge$steps.x) 
+```
+### subselect only steps, date and interval columns
+```{r, echo=TRUE}
+dt_conv_na <- dt_conv_merge[c("steps", "date", "interval")]
+```
+4: Make a histogram of the total number of steps taken each day and Calculate and report the mean and median total number of steps taken per day. Do these values differ from the estimates from the first part of the assignment? What is the impact of imputing missing data on the estimates of the total daily number of steps?
+
+histogram of the total number of steps taken each day:
+
+### Aggregate by date and calculate sum
+```{r, echo=TRUE}
+dt_agg_day_na <- aggregate(steps ~ date, FUN=sum, data=dt_conv_na)
+vt_agg_day_na <- dt_agg_day_na$steps
+names(vt_agg_day_na) <- dt_agg_day_na$date 
+
+hist(dt_agg_day_na$steps, xlab="number of steps", main="Total number of steps taken each day",col="gray")
+```
+Calculate and report the mean and median total number of steps taken per day:
+```{r, echo=TRUE}
+v_mean_na <- (mean(dt_agg_day_na$steps))
+v_median_na <- factor(median(dt_agg_day_na$steps))
+
+print(v_mean_na)
+```
+
+```{r, echo=TRUE}
+print(v_median_na)
+```
+
+Do these values differ from the estimates from the first part of the assignment? What is the impact of imputing missing data on the estimates of the total daily number of steps?
+
+Yes, By replacing the missing value with the average of the interval, the median is shifted closer to the mean.
+
+Are there differences in activity patterns between weekdays and weekends?
+1: Create a new factor variable in the dataset with two levels ??? “weekday” and “weekend” indicating whether a given date is a weekday or weekend day.
+
+### create new factor variable
+```{r, echo=TRUE}
+dt_conv_na$weekdays <- as.factor(ifelse(weekdays(dt_conv_na$date) %in% c("Saturday", "Sunday"), "weekend", "weekday"))
+```
+2: Make a panel plot containing a time series plot (i.e. type = “l”) of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all weekday days or weekend days (y-axis). See the README file in the GitHub repository to see an example of what this plot should look like using simulated data.
+
+### load lattice package
+```{r, echo=TRUE}
+library(lattice)
+```
+### aggregate by weekday and apply mean
+```{r, echo=TRUE}
+dt_agg_weekdays <- aggregate(steps ~ weekdays + interval, FUN=mean, data=dt_conv_na)
+```
+### make plot
+```{r, echo=TRUE}
+xyplot(steps ~ interval | weekdays, dt_agg_weekdays
+     , type = "l"
+     , xlab = "Interval"
+     , ylab = "Number of steps"
+     , main = "Average number of steps taken, averaged across all weekday days or weekend days"
+     , layout = c(1, 2))
+```
